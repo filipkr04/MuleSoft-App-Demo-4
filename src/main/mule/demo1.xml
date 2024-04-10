@@ -6,16 +6,16 @@
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
-	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="3d1e9333-62f0-4cea-b336-ea91e52891b5">
+	<http:request-config name="NYTimes_Config" doc:name="HTTP Request configuration" doc:id="3d1e9333-62f0-4cea-b336-ea91e52891b5">
 		<http:request-connection protocol="HTTPS" host="api.nytimes.com" />
 	</http:request-config>
-	<flow name="demo1Flow" doc:id="64a232ee-2ae4-4e14-beda-398dfb5f1a0c" >
-		<scheduler doc:name="Scheduler" doc:id="c3c43f4e-3119-44a0-9df3-51e0a2b2d5c0" >
-			<scheduling-strategy >
-				<fixed-frequency frequency="5" timeUnit="MINUTES"/>
-			</scheduling-strategy>
-		</scheduler>
-		<http:request method="GET" doc:name="Request" doc:id="ea4b7fad-1691-4082-b266-29cf5efbfcef" config-ref="HTTP_Request_configuration" path="/svc/books/v3/lists/current/hardcover-fiction.json">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="e0fb4f45-aea2-4434-baa1-df2fc8e53eee" >
+		<http:listener-connection host="localhost" port="8081" />
+	</http:listener-config>
+	<flow name="Books" doc:id="64a232ee-2ae4-4e14-beda-398dfb5f1a0c" >
+		<http:listener doc:name="Listener" doc:id="34762ce9-5039-4068-b774-766104c3c953" config-ref="HTTP_Listener_config" path="/NewYorkTimesBestSeller"/>
+		<set-variable value="#[attributes.queryParams.top]" doc:name="Set Variable" doc:id="1fb51c00-110d-4873-909c-60167b7dc07a" variableName="top"/>
+		<http:request method="GET" doc:name="Request" doc:id="ea4b7fad-1691-4082-b266-29cf5efbfcef" config-ref="NYTimes_Config" path="/svc/books/v3/lists/current/hardcover-fiction.json">
 			<http:query-params ><![CDATA[#[output application/java
 ---
 {
@@ -27,7 +27,7 @@ http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/fil
 				<ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 import * from dw::core::Arrays
-var q = take(payload.results.books,5)
+var q = take(payload.results.books,vars.top)
 
 ---
 "ksiazki" : {(q map ((value, index) -> {
@@ -40,5 +40,15 @@ var q = take(payload.results.books,5)
 			</ee:message>
 		</ee:transform>
 		<file:write doc:name="Write" doc:id="fda083d3-94bd-478f-99e0-eed835edb8d0" path="C:\Demo\Demo1.txt"/>
+	</flow>
+	<flow name="E-mails" doc:id="e2a86791-15e6-48f8-ae58-800c472e0186" >
+		<http:listener doc:name="Listener" doc:id="c3f7b772-4782-49a2-94c2-78dc8267f5d5" config-ref="HTTP_Listener_config" path="/MostEmails"/>
+		<http:request method="GET" doc:name="Request" doc:id="a1737a35-ab7a-4d6d-9d05-b1fc7b06d690" config-ref="NYTimes_Config" path="/svc/mostpopular/v2/emailed/7.json">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"api-key" : "76urWGPPOWqmLFQOfmiQTy5o3uaglkxW"
+}]]]></http:query-params>
+		</http:request>
 	</flow>
 </mule>
